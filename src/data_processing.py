@@ -119,6 +119,14 @@ def calculate_week_metrics(metrics_df, week_before, week_after):
 
     return total_conversions_before, total_visits_before, total_conversions_after, total_visits_after
 
+def get_next_decomposition_combination(possibilitiesLists, position):
+    combination = []
+    for lst in possibilitiesLists:
+        index = position % len(lst)
+        combination.append(lst[index])
+        position //= len(lst)
+    return combination
+
 def metric_decomposition(metrics_df, param_dict):
 
     results = []
@@ -197,11 +205,12 @@ def metric_change_decomposition_per_country_per_browser(metrics_df):
 
     # Create a DataFrame for results
     results_df = pd.DataFrame(results)
+    # print(results_df)
     return results_df
 
 if __name__ == "__main__":
     metrics_df = read_csv_from_filepath('S&A - Written Project - Data Set - raw_data.csv')
-    weekly_aggregates_df = transform_data(metrics_df)
-    conversion_rate_decomposition_per_country = metric_change_decomposition_per_country(metrics_df)
+    # weekly_aggregates_df = transform_data(metrics_df)
+    # conversion_rate_decomposition_per_country = metric_change_decomposition_per_country(metrics_df)
     conversion_rate_decomposition_per_country_per_browser = metric_change_decomposition_per_country_per_browser(metrics_df)
     
