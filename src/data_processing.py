@@ -7,18 +7,6 @@ from . import schema
 import matplotlib.pyplot as plt
 
 class dataProcessing:
-    def download_file_from_URL(self, url:urlparse, file_location:str):
-        """Download file from the specified URL and save it to the target location.
-
-        Args:
-            url: URL of the file
-
-        Returns:
-            Saves file locally
-        """
-        # Download the file from URL and save it to the directory
-        urlretrieve(url, file_location)
-
 
     def read_csv_from_filepath(self, file_location: str) -> pd.DataFrame:
         """Reads csv file from the specified path.
@@ -34,8 +22,16 @@ class dataProcessing:
         # if the specified path exists, return the DataFrame else throw an exception
         return pd.read_csv(file_location, sep=',', dtype=schema.metrics_schema)
 
-    def transform_data(self, metrics_df: pd.DataFrame):
+    def transform_data(self, metrics_df: pd.DataFrame) -> pd.DataFrame:
+        """Reads the pandas Dataframe and calculate the weekly conversion rate
+        across all the countries and browsers
 
+        Args:
+            metrics_df: Dataframe of the csv dataset
+
+        Returns:
+            A weekly aggregated Dataframe
+        """
         # Calculate conversion rate
         weekly_aggregates_df = metrics_df.groupby([pd.Grouper(key='week')])[['visits', 'conversions']].sum()
         weekly_aggregates_df = weekly_aggregates_df.reset_index()
@@ -60,9 +56,16 @@ class dataProcessing:
         plt.grid(True)
         plt.show()
 
-        return weekly_aggregates_df
+    def decompose_and_calculate_effects_by_country(self, metrics_df: pd.DataFrame)  -> pd.DataFrame:
+        """Reads the Dataframe and decomposes the week-on-week conversion rate 
+        changes into rate and proportion changes per country.
 
-    def metric_change_decomposition_per_country(self, metrics_df):
+        Args:
+            metrics_df: Dataframe of the csv dataset
+
+        Returns:
+            A DataFrame with the decomposition results for each country
+        """
         results = []
 
         # Get unique weeks
@@ -110,26 +113,36 @@ class dataProcessing:
         results_df = pd.DataFrame(results)
         return results_df
 
-    def calculate_week_metrics(self, metrics_df, week_before, week_after):
-        
-        # Calculate total conversions and visits for each week
-        total_conversions_before = metrics_df.loc[metrics_df['week'] == week_before]['conversions'].sum()
-        total_visits_before = metrics_df.loc[metrics_df['week'] == week_before]['visits'].sum()
-        total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
-        total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
+    def get_next_decomposition_combination(self, possibilitiesLists: list, position: int)-> list:
+        """Generate a specific combination dynamically based on a given position
 
-        return total_conversions_before, total_visits_before, total_conversions_after, total_visits_after
+        Args:
+            possibilitiesLists: A list of possibilities
+            position: represents the index of the desired combination.
 
-    def get_next_decomposition_combination(self, possibilitiesLists, position):
+        Returns:
+            a combination at a specified position
+        """
         lists = reversed(possibilitiesLists)
         combination = []
         for lst in lists:
             index = position % len(lst)
             combination.insert(0, lst[index])
             position //= len(lst)
+            
         return combination
 
-    def metric_change_decomposition_per_country_per_browser(self, metrics_df):
+    def decompose_and_calculate_effects_by_country_browser(self, metrics_df)-> pd.DataFrame:
+        """Reads the Dataframe and decomposes the week-on-week conversion rate 
+        changes into rate and proportion changes per country and browser.
+
+        Args:
+            possibilitiesList : 
+            metrics_df: Dataframe of the csv dataset
+
+        Returns:
+            A DataFrame with the decomposition results for each country and browser
+        """
         results = []
 
         # Get unique weeks
@@ -147,7 +160,8 @@ class dataProcessing:
             # Iterate over each country
             for country in metrics_df['country'].unique():
                 for browser in metrics_df['browser'].unique():
-                # Extract data for each period
+
+                    # Extract data for each period
                     subset_before = metrics_df[(metrics_df['country'] == country) & 
                                     (metrics_df['browser'] == browser) & 
                                     (metrics_df['week'] == week_before)]
@@ -180,10 +194,19 @@ class dataProcessing:
 
         # Create a DataFrame for results
         results_df = pd.DataFrame(results)
-        print(results_df)
         return results_df
 
-    def metric_change_decomposition_per_parameterized_dimensions(self, metrics_df, dimensions):
+    def decompose_and_calculate_effects_by_dimension(self, metrics_df: pd.DataFrame, dimensions:list)-> pd.DataFrame:
+        """Reads the Dataframe and decomposes the week-on-week conversion rate 
+        changes into rate and proportion changes per dimension.
+
+        Args:
+            metrics_df: Dataframe of the csv dataset
+            dimensions : parameter that you want to decompose the metric change with
+
+        Returns:
+            A DataFrame with the decomposition results for each dimension
+        """
         results = []
 
         # Get unique weeks
@@ -206,7 +229,7 @@ class dataProcessing:
             total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
 
             for nextPossibility in range(total_possibilities):
-                combination = get_next_decomposition_combination(possibilitiesLists, nextPossibility)
+                combination = self.get_next_decomposition_combination(possibilitiesLists, nextPossibility)
                 # Extract data for each period
                 query_str = ' & '.join("{} == '{}'".format(dimensions[x], combination[x]) for x in range(len(dimensions)))
                 subset_before = metrics_df.query("{} & week == {}".format(query_str, week_before))
@@ -237,5 +260,47 @@ class dataProcessing:
         
         # Create a DataFrame for results
         results_df = pd.DataFrame(results)
-        print(results_df)
+
+        results_df.to_csv('enriched_data.csv')
         return results_df
+    
+    def analyze_decomposition(self, results_df: pd.DataFrame):
+        """
+        This function helps us to identify and visualise the 
+        rate change and proportion change effects per country/browser.
+
+        Args:
+            results_df : Decomposed dataframe
+        """
+        # Summarize total effects
+        total_rate_change = results_df['rate_change_effect'].sum()
+        total_proportion_change = results_df['proportion_change_effect'].sum()
+        
+        print(f"Total Rate Change Effect: {total_rate_change}")
+        print(f"Total Proportion Change Effect: {total_proportion_change}")
+
+        # Sort by contribution
+        sorted_rate_change = results_df.sort_values(by='rate_change_effect', ascending=False)
+        sorted_proportion_change = results_df.sort_values(by='proportion_change_effect', ascending=False)
+
+        # Visualize top contributors
+        top_rate_contributors = sorted_rate_change.head(10)
+        top_proportion_contributors = sorted_proportion_change.head(10)
+
+        plt.figure(figsize=(12, 6))
+        plt.bar(top_rate_contributors['country'] + " - " + top_rate_contributors['browser'], 
+                top_rate_contributors['rate_change_effect'], color='blue', alpha=0.7)
+        plt.title("Top Rate Change Contributors")
+        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Rate Change Effect")
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(12, 6))
+        plt.bar(top_proportion_contributors['country'] + " - " + top_proportion_contributors['browser'], 
+                top_proportion_contributors['proportion_change_effect'], color='green', alpha=0.7)
+        plt.title("Top Proportion Change Contributors")
+        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Proportion Change Effect")
+        plt.tight_layout()
+        plt.show()
