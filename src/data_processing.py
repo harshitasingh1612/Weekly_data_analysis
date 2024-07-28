@@ -3,8 +3,8 @@ from urllib.request import urlretrieve
 from urllib.parse import urlparse
 from pathlib import Path
 from . import schema
-#from spark_setup import build_spark_session
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 class dataProcessing:
 
@@ -302,5 +302,26 @@ class dataProcessing:
         plt.title("Top Proportion Change Contributors")
         plt.xticks(rotation=45, ha='right')
         plt.ylabel("Proportion Change Effect")
+        plt.tight_layout()
+        plt.show()
+
+    def weekly_analysis(self, metrics_df):
+
+        metrics_df['conversion_rate'] = metrics_df['conversions'] / metrics_df['visits']
+        # Calculate week-over-week change
+        metrics_df['prev_conversion_rate'] = metrics_df['conversion_rate'].shift(1)
+        metrics_df['change'] = metrics_df['conversion_rate'] - metrics_df['prev_conversion_rate']
+
+        # Filter for the specific week
+        specific_week = 6
+        metrics_df = metrics_df[metrics_df['week'] == specific_week]
+
+        # Plot
+        plt.figure(figsize=(10, 6))
+        plt.bar(metrics_df['country'] + " - " + metrics_df['browser'], metrics_df['change'], color='skyblue')
+        plt.title(f'Change in Conversion Rate by Country and Browser for Week {specific_week}')
+        plt.xlabel('Country - Browser')
+        plt.ylabel('Change in Conversion Rate')
+        plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.show()

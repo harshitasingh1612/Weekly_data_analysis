@@ -2,7 +2,7 @@
 1. Bar Chart
 
 2. Is there anything interesting about the trend?
-The conversion rate was decreasing until week 6 and it increased drastically at week 7.
+The conversion rate increased drastically from week 6(.35) to week 7(0.40)
 
 3. How can you explain your finding(s) from the aggregated longitudinal data?
 In country AC, the number of visits and conversions increased by 124% across all the browsers. Due to this the overall conversion rate increased from week6 % to week 7 %
@@ -41,7 +41,7 @@ In country AC, the number of visits and conversions increased by 124% across all
 2. **The country - browser combination AH - Chrome is the top rate change contributor.
 The country - browser combination AC - Chrome is the top proportion change contributor.**
 
-    
+
     - Identified the key contributors.
     - Sorted the countries and browsers based on rate change and proportion change effects.
     - Cretaed a bar chart to find out which combination(s) had the largest positive or negative impact.
