@@ -144,16 +144,19 @@ def metric_change_decomposition_per_country_per_browser(metrics_df):
         total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
         total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
         
+        if total_visits_before == 0 or total_visits_after == 0:
+            raise ValueError("Total visits for a period cannot be zero.")
+    
         # Iterate over each country
         for country in metrics_df['country'].unique():
             for browser in metrics_df['browser'].unique():
             # Extract data for each period
                 subset_before = metrics_df[(metrics_df['country'] == country) & 
                                 (metrics_df['browser'] == browser) & 
-                                (metrics_df['week'] == 'before')]
+                                (metrics_df['week'] == week_before)]
                 subset_after = metrics_df[(metrics_df['country'] == country) & 
                                 (metrics_df['browser'] == browser) & 
-                                (metrics_df['week'] == 'after')]
+                                (metrics_df['week'] == week_after)]
 
                 # Calculate conversion rates and proportions
                 rate_before = (subset_before['conversions'].sum() / 
@@ -162,100 +165,26 @@ def metric_change_decomposition_per_country_per_browser(metrics_df):
                             subset_after['visits'].sum() if subset_after['visits'].sum() != 0 else 0)
                 proportion_before = subset_before['visits'].sum() / total_visits_before
                 proportion_after = subset_after['visits'].sum() / total_visits_after
-                # Extract data for each week
-                country_data_before = metrics_df[(metrics_df['country'] == country) & (metrics_df['week'] == week_before)]
-                country_data_after = metrics_df[(metrics_df['country'] == country) & (metrics_df['week'] == week_after)]
-                
-                # Calculate conversion rates and proportions
-                rate_before = (country_data_before['conversions'].sum() / 
-                            country_data_before['visits'].sum() if country_data_before['visits'].sum() != 0 else 0)
-                rate_after = (country_data_after['conversions'].sum() / 
-                            country_data_after['visits'].sum() if country_data_after['visits'].sum() != 0 else 0)
-                proportion_before = country_data_before['visits'].sum() / total_visits_before
-                proportion_after = country_data_after['visits'].sum() / total_visits_after
                 
                 # Calculate effects
                 rate_change = proportion_after * (rate_after - rate_before)
                 proportion_change = rate_before * (proportion_after - proportion_before)
                 
+                
                 # Append results
                 results.append({
-                    'country': country,
-                    'browser': browser,
                     'week_before': week_before,
                     'week_after': week_after,
                     'rate_change_effect': rate_change,
-                    'proportion_change_effect': proportion_change
+                    'proportion_change_effect': proportion_change,
+                    'country': country,
+                    'browser': browser
                 })
 
     # Create a DataFrame for results
     results_df = pd.DataFrame(results)
     print(results_df)
     return results_df
-
-
-def test_data_in_orig_func(metrics_df):
-    results = []
-
-    # Get unique weeks
-    weeks = sorted(metrics_df['week'].unique())
-    
-    # Iterate over each pair of consecutive weeks
-    for i in range(1, len(weeks)):
-        week_before = weeks[i-1]
-        week_after = weeks[i]
-        
-        # # Calculate total conversions and visits for each week
-        total_conversions_before = metrics_df.loc[metrics_df['week'] == week_before]['conversions'].sum()
-        total_visits_before = metrics_df.loc[metrics_df['week'] == week_before]['visits'].sum()
-        total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
-        total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
-        
-        # Iterate over each country
-        for country in metrics_df['country'].unique():
-            for browser in metrics_df['browser'].unique():
-            # Extract data for each period
-                subset_before = metrics_df[(metrics_df['country'] == 'AA') & 
-                                (metrics_df['browser'] == 'chrome') & 
-                                (metrics_df['week'] == 'before')]
-                subset_after = metrics_df[(metrics_df['country'] == 'AA') & 
-                                (metrics_df['browser'] == 'chrome') & 
-                                (metrics_df['week'] == 'after')]
-
-                # Calculate conversion rates and proportions
-                rate_before = (subset_before['conversions'].sum() / 
-                            subset_before['visits'].sum() if subset_before['visits'].sum() != 0 else 0)
-                rate_after = (subset_after['conversions'].sum() / 
-                            subset_after['visits'].sum() if subset_after['visits'].sum() != 0 else 0)
-                proportion_before = subset_before['visits'].sum() / total_visits_before
-                proportion_after = subset_after['visits'].sum() / total_visits_after
-                
-                # Calculate conversion rates and proportions
-                rate_before = (subset_before['conversions'].sum() / 
-                            subset_before['visits'].sum() if country_data_besubset_beforefore['visits'].sum() != 0 else 0)
-                rate_after = (country_data_after['conversions'].sum() / 
-                            country_data_after['visits'].sum() if country_data_after['visits'].sum() != 0 else 0)
-                proportion_before = country_data_before['visits'].sum() / total_visits_before
-                proportion_after = country_data_after['visits'].sum() / total_visits_after
-                
-                # Calculate effects
-                rate_change = proportion_after * (rate_after - rate_before)
-                proportion_change = rate_before * (proportion_after - proportion_before)
-                
-                # Append results
-                results.append({
-                    'country': country,
-                    'browser': browser,
-                    'week_before': week_before,
-                    'week_after': week_after,
-                    'rate_change_effect': rate_change,
-                    'proportion_change_effect': proportion_change
-                })
-
-    # Create a DataFrame for results
-    results_df = pd.DataFrame(results)
-    print(results_df)
-    return results_df  
 
 def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensions):
     results = []
@@ -285,8 +214,8 @@ def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensi
             combination = get_next_decomposition_combination(possibilitiesLists, nextPossibility)
             # Extract data for each period
             query_str = ' and '.join("{} == '{}'".format(dimensions[x], combination[x]) for x in range(len(dimensions)))
-            subset_before = metrics_df.query(query_str and "week == 'before'")
-            subset_after = metrics_df.query(query_str and "week == 'after'")
+            subset_before = metrics_df.query(query_str and "week == {}".format(week_before))
+            subset_after = metrics_df.query(query_str and "week == {}".format(week_after))
             
             # Calculate conversion rates and proportions
             rate_before = (subset_before['conversions'].sum() / 
@@ -295,17 +224,6 @@ def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensi
                         subset_after['visits'].sum() if subset_after['visits'].sum() != 0 else 0)
             proportion_before = subset_before['visits'].sum() / total_visits_before
             proportion_after = subset_after['visits'].sum() / total_visits_after
-            # Extract data for each week
-            country_data_before = metrics_df.query(query_str and "week == {}".format(week_before))
-            country_data_after = metrics_df.query(query_str and "week == {}".format(week_after))
-            
-            # Calculate conversion rates and proportions
-            rate_before = (country_data_before['conversions'].sum() / 
-                        country_data_before['visits'].sum() if country_data_before['visits'].sum() != 0 else 0)
-            rate_after = (country_data_after['conversions'].sum() / 
-                        country_data_after['visits'].sum() if country_data_after['visits'].sum() != 0 else 0)
-            proportion_before = country_data_before['visits'].sum() / total_visits_before
-            proportion_after = country_data_after['visits'].sum() / total_visits_after
             
             # Calculate effects
             rate_change = proportion_after * (rate_after - rate_before)
@@ -335,6 +253,4 @@ if __name__ == "__main__":
     # conversion_rate_decomposition_per_country = metric_change_decomposition_per_country(metrics_df)
     conversion_rate_decomposition_per_country_per_browser = metric_change_decomposition_per_country_per_browser(metrics_df)
     conversion_rate_decomposition_per_parameterized_dimensions = metric_change_decomposition_per_parameterized_dimensions(metrics_df, ['country', 'browser'])
-    
-
     
