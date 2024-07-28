@@ -120,10 +120,11 @@ def calculate_week_metrics(metrics_df, week_before, week_after):
     return total_conversions_before, total_visits_before, total_conversions_after, total_visits_after
 
 def get_next_decomposition_combination(possibilitiesLists, position):
+    lists = reversed(possibilitiesLists)
     combination = []
-    for lst in possibilitiesLists:
+    for lst in lists:
         index = position % len(lst)
-        combination.append(lst[index])
+        combination.insert(0, lst[index])
         position //= len(lst)
     return combination
 
@@ -139,13 +140,8 @@ def metric_change_decomposition_per_country_per_browser(metrics_df):
         week_after = weeks[i]
         
         # # Calculate total conversions and visits for each week
-        total_conversions_before = metrics_df.loc[metrics_df['week'] == week_before]['conversions'].sum()
         total_visits_before = metrics_df.loc[metrics_df['week'] == week_before]['visits'].sum()
-        total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
         total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
-        
-        if total_visits_before == 0 or total_visits_after == 0:
-            raise ValueError("Total visits for a period cannot be zero.")
     
         # Iterate over each country
         for country in metrics_df['country'].unique():
@@ -173,12 +169,12 @@ def metric_change_decomposition_per_country_per_browser(metrics_df):
                 
                 # Append results
                 results.append({
+                    'country': country,
+                    'browser': browser,
                     'week_before': week_before,
                     'week_after': week_after,
                     'rate_change_effect': rate_change,
-                    'proportion_change_effect': proportion_change,
-                    'country': country,
-                    'browser': browser
+                    'proportion_change_effect': proportion_change
                 })
 
     # Create a DataFrame for results
@@ -205,17 +201,15 @@ def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensi
         week_after = weeks[i]
         
         # # Calculate total conversions and visits for each week
-        total_conversions_before = metrics_df.loc[metrics_df['week'] == week_before]['conversions'].sum()
         total_visits_before = metrics_df.loc[metrics_df['week'] == week_before]['visits'].sum()
-        total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
         total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
 
         for nextPossibility in range(total_possibilities):
             combination = get_next_decomposition_combination(possibilitiesLists, nextPossibility)
             # Extract data for each period
-            query_str = ' and '.join("{} == '{}'".format(dimensions[x], combination[x]) for x in range(len(dimensions)))
-            subset_before = metrics_df.query(query_str and "week == {}".format(week_before))
-            subset_after = metrics_df.query(query_str and "week == {}".format(week_after))
+            query_str = ' & '.join("{} == '{}'".format(dimensions[x], combination[x]) for x in range(len(dimensions)))
+            subset_before = metrics_df.query("{} & week == {}".format(query_str, week_before))
+            subset_after = metrics_df.query("{} & week == {}".format(query_str, week_after))
             
             # Calculate conversion rates and proportions
             rate_before = (subset_before['conversions'].sum() / 
@@ -228,19 +222,18 @@ def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensi
             # Calculate effects
             rate_change = proportion_after * (rate_after - rate_before)
             proportion_change = rate_before * (proportion_after - proportion_before)
-            
             # Append results
-            res_dict = {
-                'week_before': week_before,
-                'week_after': week_after,
-                'rate_change_effect': rate_change,
-                'proportion_change_effect': proportion_change
-            }
+            res_dict = dict()
             for x in range(len(dimensions)):
                 res_dict[dimensions[x]] = combination[x]
 
+            res_dict['week_before'] = week_before
+            res_dict['week_after'] = week_after
+            res_dict['rate_change_effect'] = rate_change
+            res_dict['proportion_change_effect'] = proportion_change
             results.append(res_dict)
-
+        
+    
     # Create a DataFrame for results
     results_df = pd.DataFrame(results)
     print(results_df)
@@ -249,8 +242,9 @@ def metric_change_decomposition_per_parameterized_dimensions(metrics_df, dimensi
 
 if __name__ == "__main__":
     metrics_df = read_csv_from_filepath('S&A - Written Project - Data Set - raw_data.csv')
-    # weekly_aggregates_df = transform_data(metrics_df)
-    # conversion_rate_decomposition_per_country = metric_change_decomposition_per_country(metrics_df)
+    weekly_aggregates_df = transform_data(metrics_df)
+    # metrics_df = metrics_df[(metrics_df['country'] == 'AJ') & (metrics_df['browser'] == 'safari')]
+    conversion_rate_decomposition_per_country = metric_change_decomposition_per_country(metrics_df)
     conversion_rate_decomposition_per_country_per_browser = metric_change_decomposition_per_country_per_browser(metrics_df)
     conversion_rate_decomposition_per_parameterized_dimensions = metric_change_decomposition_per_parameterized_dimensions(metrics_df, ['country', 'browser'])
     
