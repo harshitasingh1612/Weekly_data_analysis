@@ -4,7 +4,10 @@ from urllib.parse import urlparse
 from pathlib import Path
 from . import schema
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, MultipleLocator
+import matplotlib as mpl
 import seaborn as sns
+import math
 
 class dataProcessing:
 
@@ -33,7 +36,7 @@ class dataProcessing:
             A weekly aggregated Dataframe
         """
         # Calculate conversion rate
-        weekly_aggregates_df = metrics_df.groupby([pd.Grouper(key='week')])[['visits', 'conversions']].sum()
+        weekly_aggregates_df = metrics_df.groupby([pd.Grouper(key='week')]).agg({'visits': 'sum', 'conversions': 'sum'})
         weekly_aggregates_df = weekly_aggregates_df.reset_index()
         weekly_aggregates_df = weekly_aggregates_df.rename(
             columns= {
@@ -48,6 +51,7 @@ class dataProcessing:
         plt.figure(figsize=(12, 6))
         plt.rcParams["font.weight"] = "bold"
         plt.rcParams["axes.labelweight"] = "bold"
+        plt.gca().ticklabel_format(axis='y', style='plain')
         plt.xticks(weekly_aggregates_df['week'])
         plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_conversion_rate'], marker='o', linestyle='-')
         plt.title('Weekly Conversion Rate Over Time')
@@ -55,6 +59,23 @@ class dataProcessing:
         plt.ylabel('Conversion Rate')
         plt.grid(True)
         plt.show()
+
+        # Plot the global visitors over time
+        plt.figure(figsize=(12, 6))
+        plt.rcParams["font.weight"] = "bold"
+        plt.rcParams["axes.labelweight"] = "bold"
+        plt.gca().ticklabel_format(axis='y', style='plain')
+        ax = weekly_aggregates_df['weekly_visits'].plot()
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
+        plt.xticks(weekly_aggregates_df['week'])
+        plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_visits'], marker='o', linestyle='-')
+        plt.title('Weekly visits Over Time')
+        plt.xlabel('Week')
+        plt.ylabel('Global Visits')
+        plt.grid(True)
+        plt.show()
+
+        return weekly_aggregates_df
 
     def decompose_and_calculate_effects_by_country(self, metrics_df: pd.DataFrame)  -> pd.DataFrame:
         """Reads the Dataframe and decomposes the week-on-week conversion rate 
@@ -305,23 +326,80 @@ class dataProcessing:
         plt.tight_layout()
         plt.show()
 
-    def weekly_analysis(self, metrics_df):
+    
 
-        metrics_df['conversion_rate'] = metrics_df['conversions'] / metrics_df['visits']
-        # Calculate week-over-week change
-        metrics_df['prev_conversion_rate'] = metrics_df['conversion_rate'].shift(1)
-        metrics_df['change'] = metrics_df['conversion_rate'] - metrics_df['prev_conversion_rate']
+       
+        # Calculate week-over-week change in conversion rates
+        weekly_data['conversion_rate_diff'] = weekly_data.groupby('country')['weekly_conversion_rate'].diff()
 
-        # Filter for the specific week
-        specific_week = 6
-        metrics_df = metrics_df[metrics_df['week'] == specific_week]
+        # Fill NaN values in the first row for each dimension with 0
+        weekly_data['conversion_rate_diff'] = weekly_data['conversion_rate_diff'].fillna(0)
 
-        # Plot
-        plt.figure(figsize=(10, 6))
-        plt.bar(metrics_df['country'] + " - " + metrics_df['browser'], metrics_df['change'], color='skyblue')
-        plt.title(f'Change in Conversion Rate by Country and Browser for Week {specific_week}')
-        plt.xlabel('Country - Browser')
-        plt.ylabel('Change in Conversion Rate')
-        plt.xticks(rotation=45, ha='right')
-        plt.tight_layout()
+        # Get the contributions for that week
+        contributions = weekly_data[weekly_data['week'] == 7]
+
+        print("Contributions to the increase in conversion rate for that week:")
+        print(contributions[['country', 'conversion_rate_diff']])
+
+        # Identify the dimension with the maximum contribution
+        max_contributing_dimension = contributions.loc[contributions['conversion_rate_diff'].idxmax(), 'country']
+        print(f"Dimension contributing the most: {max_contributing_dimension}")
+
+        explanation = f"The dimension {contributions['country']} contributed the most to the increase in conversion rate for the week of {contributions['week']}.\n"
+        dimension_trend = contributions[contributions['dimension'] == {contributions['country']}]['conversion_rate_diff'].values[0]
+        explanation += f"Specifically, the conversion rate increased by {dimension_trend:.4f}.\n"
+            
+            # Add more context-specific insights if available
+            # For example, checking external factors, marketing campaigns, or other relevant data
+            # explanation += "Possible reasons for this increase could be..."
+        
+    def plot_metrics_per_country(self, weekly_country_data):
+        groupByColumns = ['week', 'country']
+        weekly_country_data = weekly_country_data.groupby(groupByColumns).agg({'visits': 'sum', 'conversions': 'sum'}).reset_index()
+        total_visits_df = weekly_country_data.groupby(['week']).agg({'visits': 'sum'}).reset_index()
+        total_visits_df = total_visits_df.rename(columns= {'visits': 'global_visits'})
+        merged_df = pd.merge(weekly_country_data, total_visits_df, on='week')
+        merged_df['conversion_rate'] = merged_df['conversions'] / merged_df['global_visits']
+
+        # Plot the global conversion rate per country over time
+        plt.figure(figsize=(12, 6))
+        plt.rcParams["font.weight"] = "bold"
+        plt.rcParams["axes.labelweight"] = "bold"
+        plt.xticks(merged_df['week'])
+        ax = plt.gca().ticklabel_format(axis='y', style='plain')
+        for label, row in merged_df.groupby('country'):
+            plt.plot(row['week'], row['conversion_rate'], label=label)
+       
+        plt.title('Weekly conversion rate Over Country')
+        plt.xlabel('Week')
+        plt.ylabel('Conversion Rate')
+        plt.legend(title='Country')
+        plt.grid(True)
+        plt.show()
+
+        # Plot the global visits per country over time
+        plt.figure(figsize=(12, 6))
+        plt.rcParams["font.weight"] = "bold"
+        plt.rcParams["axes.labelweight"] = "bold"
+        plt.xticks(merged_df['week'])
+        plt.gca().ticklabel_format(axis='y', style='plain')
+        
+        for label, row in merged_df.groupby('country'): 
+            plt.plot(row['week'], row['visits'], label=label)
+       
+        plt.title('Weekly visits Over Country')
+        plt.xlabel('Week')
+        plt.ylabel('Total visits in a country')
+        plt.legend(title='Country')
+        plt.grid(True)
+        def comma_format(x, pos):
+            return f'{int(x):,}'
+
+        # Apply the formatter to the y-axis
+        formatter = FuncFormatter(comma_format)
+        ax = plt.gca()
+        ax.yaxis.set_major_formatter(formatter)  
+        ax.yaxis.set_minor_locator(MultipleLocator(250000))
+        # Set major ticks with 500,000 increments for the whole range
+        ax.yaxis.set_major_locator(MultipleLocator(250000))
         plt.show()
