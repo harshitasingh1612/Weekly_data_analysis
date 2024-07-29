@@ -8,6 +8,7 @@ from matplotlib.ticker import FuncFormatter, MultipleLocator
 import matplotlib as mpl
 import seaborn as sns
 import math
+from matplotlib.animation import FuncAnimation
 
 class dataProcessing:
 
@@ -46,34 +47,36 @@ class dataProcessing:
         )
         
         weekly_aggregates_df['weekly_conversion_rate'] = weekly_aggregates_df['weekly_conversions']/weekly_aggregates_df['weekly_visits']
+        self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_conversion_rate')
+        self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_visits')
         
         # Plot the conversion rate over time
-        plt.figure(figsize=(12, 6))
-        plt.rcParams["font.weight"] = "bold"
-        plt.rcParams["axes.labelweight"] = "bold"
-        plt.gca().ticklabel_format(axis='y', style='plain')
-        plt.xticks(weekly_aggregates_df['week'])
-        plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_conversion_rate'], marker='o', linestyle='-')
-        plt.title('Weekly Conversion Rate Over Time')
-        plt.xlabel('Week')
-        plt.ylabel('Conversion Rate')
-        plt.grid(True)
-        plt.show()
+        # plt.figure(figsize=(12, 6))
+        # plt.rcParams["font.weight"] = "bold"
+        # plt.rcParams["axes.labelweight"] = "bold"
+        # plt.gca().ticklabel_format(axis='y', style='plain')
+        # plt.xticks(weekly_aggregates_df['week'])
+        # plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_conversion_rate'], marker='o', linestyle='-')
+        # plt.title('Weekly Conversion Rate Over Time')
+        # plt.xlabel('Week')
+        # plt.ylabel('Conversion Rate')
+        # plt.grid(True)
+        # plt.show()
 
-        # Plot the global visitors over time
-        plt.figure(figsize=(12, 6))
-        plt.rcParams["font.weight"] = "bold"
-        plt.rcParams["axes.labelweight"] = "bold"
-        plt.gca().ticklabel_format(axis='y', style='plain')
-        ax = weekly_aggregates_df['weekly_visits'].plot()
-        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
-        plt.xticks(weekly_aggregates_df['week'])
-        plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_visits'], marker='o', linestyle='-')
-        plt.title('Weekly visits Over Time')
-        plt.xlabel('Week')
-        plt.ylabel('Global Visits')
-        plt.grid(True)
-        plt.show()
+        # # Plot the global visitors over time
+        # plt.figure(figsize=(12, 6))
+        # plt.rcParams["font.weight"] = "bold"
+        # plt.rcParams["axes.labelweight"] = "bold"
+        # plt.gca().ticklabel_format(axis='y', style='plain')
+        # ax = weekly_aggregates_df['weekly_visits'].plot()
+        # ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
+        # plt.xticks(weekly_aggregates_df['week'])
+        # plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_visits'], marker='o', linestyle='-')
+        # plt.title('Weekly visits Over Time')
+        # plt.xlabel('Week')
+        # plt.ylabel('Global Visits')
+        # plt.grid(True)
+        # plt.show()
 
         return weekly_aggregates_df
 
@@ -361,45 +364,81 @@ class dataProcessing:
         merged_df = pd.merge(weekly_country_data, total_visits_df, on='week')
         merged_df['conversion_rate'] = merged_df['conversions'] / merged_df['global_visits']
 
+
+        self.plot_with_dynamic_axes(merged_df, 'week', 'conversion_rate', 'country')
+        self.plot_with_dynamic_axes(merged_df, 'week', 'visits', 'country', add_locator=True)
         # Plot the global conversion rate per country over time
-        plt.figure(figsize=(12, 6))
-        plt.rcParams["font.weight"] = "bold"
-        plt.rcParams["axes.labelweight"] = "bold"
-        plt.xticks(merged_df['week'])
-        ax = plt.gca().ticklabel_format(axis='y', style='plain')
-        for label, row in merged_df.groupby('country'):
-            plt.plot(row['week'], row['conversion_rate'], label=label)
-       
-        plt.title('Weekly conversion rate Over Country')
-        plt.xlabel('Week')
-        plt.ylabel('Conversion Rate')
-        plt.legend(title='Country')
-        plt.grid(True)
-        plt.show()
-
-        # Plot the global visits per country over time
-        plt.figure(figsize=(12, 6))
-        plt.rcParams["font.weight"] = "bold"
-        plt.rcParams["axes.labelweight"] = "bold"
-        plt.xticks(merged_df['week'])
-        plt.gca().ticklabel_format(axis='y', style='plain')
         
-        for label, row in merged_df.groupby('country'): 
-            plt.plot(row['week'], row['visits'], label=label)
+        # plt.figure(figsize=(12, 6))
+        # plt.rcParams["font.weight"] = "bold"
+        # plt.rcParams["axes.labelweight"] = "bold"
+        # plt.xticks(merged_df['week'])
+        # #ax = plt.gca().ticklabel_format(axis='y', style='plain')
+        # for label, row in merged_df.groupby('country'):
+        #     plt.plot(row['week'], row['conversion_rate'], label=label)
        
-        plt.title('Weekly visits Over Country')
-        plt.xlabel('Week')
-        plt.ylabel('Total visits in a country')
-        plt.legend(title='Country')
-        plt.grid(True)
-        def comma_format(x, pos):
-            return f'{int(x):,}'
+        # plt.title('Weekly conversion rate Over Country')
+        # plt.xlabel('Week')
+        # plt.ylabel('Conversion Rate')
+        # plt.legend(title='Country')
+        # plt.grid(True)
+        # plt.show()
 
-        # Apply the formatter to the y-axis
-        formatter = FuncFormatter(comma_format)
+        # # Plot the global visits per country over time
+        # plt.figure(figsize=(12, 6))
+        # plt.rcParams["font.weight"] = "bold"
+        # plt.rcParams["axes.labelweight"] = "bold"
+        # plt.xticks(merged_df['week'])
+        # plt.gca().ticklabel_format(axis='y', style='plain')
+        
+        # for label, row in merged_df.groupby('country'): 
+        #     plt.plot(row['week'], row['visits'], label=label)
+       
+        # plt.title('Weekly visits Over Country')
+        # plt.xlabel('Week')
+        # plt.ylabel('Total visits in a country')
+        # plt.legend(title='Country')
+        # plt.grid(True)
+        
+    def comma_format(self,x, pos):
+        if x == 0:
+            return "0"
+        elif x % 1 == 0:
+            return f'{int(x):,}'  # Format as int with commas
+        else:
+            return f'{x:,.2f}'  # Format as float with commas, two decimal places
+
+    # Dynamic plotting function
+    def plot_with_dynamic_axes(self, df, x_col, y_col, group_by_col=None, add_locator=False):
+        plt.figure(figsize=(12, 6))
+        plt.rcParams["font.weight"] = "bold"
+        plt.rcParams["axes.labelweight"] = "bold"
+        plt.xticks(df[x_col])
+        plt.gca().ticklabel_format(axis='y', style='plain')
+        max_value = 0  # Initialize max_value for dynamic y-axis limit
+        
+        if group_by_col:
+            # Group the data by the specified column
+            for label, row in df.groupby(group_by_col):
+                plt.plot(row[x_col], row[y_col], marker='.', linestyle='-', label=label)
+                max_value = max(max_value, row[y_col].max())  # Update max_value if higher value is found
+
+            plt.legend(title=group_by_col.title())
+        else:
+            # Plot data without grouping
+            plt.plot(df[x_col], df[y_col], marker='.', linestyle='-')
+            max_value = df[y_col].max()
+        #plt.plot(df[x_col], df[y_col], marker='o', linestyle='-')
+        plt.title(f'{y_col.replace("_", " ").title()} Over {x_col.replace("_", " ").title()}')
+        plt.xlabel(x_col.replace("_", " ").title())
+        plt.ylabel(y_col.replace("_", " ").title())
+
+        # Apply comma formatting to the y-axis
         ax = plt.gca()
-        ax.yaxis.set_major_formatter(formatter)  
-        ax.yaxis.set_minor_locator(MultipleLocator(250000))
-        # Set major ticks with 500,000 increments for the whole range
-        ax.yaxis.set_major_locator(MultipleLocator(250000))
+        ax.yaxis.set_major_formatter(FuncFormatter(self.comma_format))  
+        if add_locator:
+            ax.yaxis.set_minor_locator(MultipleLocator(250000))
+            # Set major ticks with 500,000 increments for the whole range
+            ax.yaxis.set_major_locator(MultipleLocator(250000))
+        plt.grid(True)
         plt.show()
