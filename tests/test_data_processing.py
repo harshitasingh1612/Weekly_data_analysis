@@ -1,7 +1,6 @@
 import pandas as pd
 import pytest
 import unittest
-from unittest.mock import patch
 from src.data_processing import dataProcessing
 
 class TestDataProcessing(unittest.TestCase):
