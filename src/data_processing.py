@@ -33,19 +33,26 @@ class dataProcessing:
         Returns:
             A weekly aggregated Dataframe
         """
-        # Calculate conversion rate
+        # Calculate the total visits and total conversions for each week
         weekly_aggregates_df = metrics_df.groupby([pd.Grouper(key='week')]).agg({'visits': 'sum', 'conversions': 'sum'})
         weekly_aggregates_df = weekly_aggregates_df.reset_index()
+
+        # Rename the columns
         weekly_aggregates_df = weekly_aggregates_df.rename(
             columns= {
-                'visits': 'weekly_visits',
-                'conversions': 'weekly_conversions'
+                'visits': 'total_visits',
+                'conversions': 'total_conversions'
             }
         )
         
-        weekly_aggregates_df['weekly_conversion_rate'] = weekly_aggregates_df['weekly_conversions']/weekly_aggregates_df['weekly_visits']
-        self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_conversion_rate')
-        self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_visits')
+        # Calculate the conversion rate for each week
+        weekly_aggregates_df['conversion_rate'] = weekly_aggregates_df['total_conversions']/weekly_aggregates_df['total_visits']
+        
+        # Plot the weekly conversion rate for each week
+        self.plot_metrics(weekly_aggregates_df, 'week', 'conversion_rate')
+
+        # Plot the total visits per week
+        self.plot_metrics(weekly_aggregates_df, 'week', 'total_visits')
 
         return weekly_aggregates_df
 
@@ -69,14 +76,13 @@ class dataProcessing:
             week_before = weeks[i-1]
             week_after = weeks[i]
             
-            # Calculate total conversions and visits for each week
-            total_conversions_before = metrics_df.loc[metrics_df['week'] == week_before]['conversions'].sum()
+            # Calculate total visits for each week
             total_visits_before = metrics_df.loc[metrics_df['week'] == week_before]['visits'].sum()
-            total_conversions_after = metrics_df.loc[metrics_df['week'] == week_after]['conversions'].sum()
             total_visits_after = metrics_df.loc[metrics_df['week'] == week_after]['visits'].sum()
             
             # Iterate over each country
             for country in metrics_df['country'].unique():
+
                 # Extract data for each week
                 country_data_before = metrics_df[(metrics_df['country'] == country) & (metrics_df['week'] == week_before)]
                 country_data_after = metrics_df[(metrics_df['country'] == country) & (metrics_df['week'] == week_after)]
@@ -268,13 +274,6 @@ class dataProcessing:
         Returns:
             A visual representation of top rate and porportion contributors based on the dimension
         """
-        # Summarize total effects
-        total_rate_change = results_df['rate_change_effect'].sum()
-        total_proportion_change = results_df['proportion_change_effect'].sum()
-        
-        print(f"Total Rate Change Effect: {total_rate_change}")
-        print(f"Total Proportion Change Effect: {total_proportion_change}")
-
         # Sort by contribution
         sorted_rate_change = results_df.sort_values(by='rate_change_effect', ascending=False)
         sorted_proportion_change = results_df.sort_values(by='proportion_change_effect', ascending=False)
@@ -282,17 +281,17 @@ class dataProcessing:
         # Visualize top contributors
         top_rate_contributors = sorted_rate_change.head(10)
         top_proportion_contributors = sorted_proportion_change.head(10)
-        top_rate_contributors  = top_rate_contributors.reset_index()
-        top_proportion_contributors  = top_proportion_contributors.reset_index()
-
-        col_name = dimension
-        if isinstance(dimension, list):
-            col_name = ' - '.join(dimension)
-            top_rate_contributors[col_name] = top_rate_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
-            top_proportion_contributors[col_name] = top_proportion_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
         
-        self.plot_with_dynamic_axes(top_rate_contributors, col_name , 'rate_change_effect')
-        self.plot_with_dynamic_axes(top_proportion_contributors, col_name, 'proportion_change_effect')
+        dim_name = dimension
+        # Conatenate dimensions to use as a header of x-axis
+        if isinstance(dimension, list):
+            dim_name = ' - '.join(dimension)
+            top_rate_contributors[dim_name] = top_rate_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
+            top_proportion_contributors[dim_name] = top_proportion_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
+
+        # Plot the top rate change and proportion change contributors
+        self.plot_metrics(top_rate_contributors, dim_name , 'rate_change_effect')
+        self.plot_metrics(top_proportion_contributors, dim_name, 'proportion_change_effect')
         
     def analyze_metrics_per_country(self, data:pd.DataFrame):
         """
@@ -304,20 +303,27 @@ class dataProcessing:
         """
 
         groupByColumns = ['week', 'country']
+
+        # Calculate the aggregates by week and country
         data = data.groupby(groupByColumns).agg({'visits': 'sum', 'conversions': 'sum'}).reset_index()
+
+        # Calculate the total visits by week
         total_visits_df = data.groupby(['week']).agg({'visits': 'sum'}).reset_index()
         total_visits_df = total_visits_df.rename(columns= {'visits': 'global_visits'})
+
+        # Merge the two datasets for calculating the conversion rate by country
         merged_df = pd.merge(data, total_visits_df, on='week')
         merged_df['conversion_rate'] = merged_df['conversions'] / merged_df['global_visits']
 
         # Plot the global conversion rate per country over time
-        self.plot_with_dynamic_axes(merged_df, 'week', 'conversion_rate', 'country')
+        self.plot_metrics(merged_df, 'week', 'conversion_rate', 'country')
 
         # Plot the visits per country over time
-        self.plot_with_dynamic_axes(merged_df, 'week', 'visits', 'country', add_locator=True)
+        self.plot_metrics(merged_df, 'week', 'visits', 'country', add_locator=True)
 
         return merged_df
-    def plot_with_dynamic_axes(self, df: pd.DataFrame, x_col, y_col, group_by_col=None, add_locator=False):
+    
+    def plot_metrics(self, df: pd.DataFrame, x_col, y_col, group_by_col=None, add_locator=False):
         """
         This functions plot dynamically based on the x-axis, y-axis and group_by_col
         Args:
@@ -389,7 +395,7 @@ class dataProcessing:
                 return f'{int(x):,}' 
             else:
                 # Format as float with commas, two decimal places
-                return f'{x:,.2f}'  
+                return f'{x:,.6f}'  
             
         ax = plt.gca()
         ax.yaxis.set_major_formatter(FuncFormatter(comma_format))  
