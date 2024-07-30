@@ -2,6 +2,9 @@ import pandas as pd
 import pytest
 import unittest
 from src.data_processing import dataProcessing
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 class TestDataProcessing(unittest.TestCase):
 
