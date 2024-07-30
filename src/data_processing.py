@@ -288,7 +288,7 @@ class dataProcessing:
         results_df.to_csv('enriched_data.csv')
         return results_df
     
-    def analyze_decomposition(self, results_df: pd.DataFrame):
+    def analyze_decomposition_by_dimension(self, results_df: pd.DataFrame, dimension):
         """
         This function helps us to identify and visualise the 
         rate change and proportion change effects per country/browser.
@@ -310,53 +310,19 @@ class dataProcessing:
         # Visualize top contributors
         top_rate_contributors = sorted_rate_change.head(10)
         top_proportion_contributors = sorted_proportion_change.head(10)
+        top_rate_contributors  = top_rate_contributors.reset_index()
+        top_proportion_contributors  = top_proportion_contributors.reset_index()
 
-        plt.figure(figsize=(12, 6))
-        plt.bar(top_rate_contributors['country'] + " - " + top_rate_contributors['browser'], 
-                top_rate_contributors['rate_change_effect'], color='blue', alpha=0.7)
-        plt.title("Top Rate Change Contributors")
-        plt.xticks(rotation=45, ha='right')
-        plt.ylabel("Rate Change Effect")
-        plt.tight_layout()
-        plt.show()
-
-        plt.figure(figsize=(12, 6))
-        plt.bar(top_proportion_contributors['country'] + " - " + top_proportion_contributors['browser'], 
-                top_proportion_contributors['proportion_change_effect'], color='green', alpha=0.7)
-        plt.title("Top Proportion Change Contributors")
-        plt.xticks(rotation=45, ha='right')
-        plt.ylabel("Proportion Change Effect")
-        plt.tight_layout()
-        plt.show()
-
-    
-
-       
-        # Calculate week-over-week change in conversion rates
-        weekly_data['conversion_rate_diff'] = weekly_data.groupby('country')['weekly_conversion_rate'].diff()
-
-        # Fill NaN values in the first row for each dimension with 0
-        weekly_data['conversion_rate_diff'] = weekly_data['conversion_rate_diff'].fillna(0)
-
-        # Get the contributions for that week
-        contributions = weekly_data[weekly_data['week'] == 7]
-
-        print("Contributions to the increase in conversion rate for that week:")
-        print(contributions[['country', 'conversion_rate_diff']])
-
-        # Identify the dimension with the maximum contribution
-        max_contributing_dimension = contributions.loc[contributions['conversion_rate_diff'].idxmax(), 'country']
-        print(f"Dimension contributing the most: {max_contributing_dimension}")
-
-        explanation = f"The dimension {contributions['country']} contributed the most to the increase in conversion rate for the week of {contributions['week']}.\n"
-        dimension_trend = contributions[contributions['dimension'] == {contributions['country']}]['conversion_rate_diff'].values[0]
-        explanation += f"Specifically, the conversion rate increased by {dimension_trend:.4f}.\n"
-            
-            # Add more context-specific insights if available
-            # For example, checking external factors, marketing campaigns, or other relevant data
-            # explanation += "Possible reasons for this increase could be..."
+        col_name = dimension
+        if isinstance(dimension, list):
+            col_name = ' - '.join(dimension)
+            top_rate_contributors[col_name] = top_rate_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
+            top_proportion_contributors[col_name] = top_proportion_contributors[dimension].apply(lambda x: ' - '.join(x.astype(str)), axis=1)
         
-    def plot_metrics_per_country(self, weekly_country_data):
+        self.plot_with_dynamic_axes(top_rate_contributors, col_name , 'rate_change_effect')
+        self.plot_with_dynamic_axes(top_proportion_contributors, col_name, 'proportion_change_effect')
+        
+    def analyze_metrics_per_country(self, weekly_country_data):
         groupByColumns = ['week', 'country']
         weekly_country_data = weekly_country_data.groupby(groupByColumns).agg({'visits': 'sum', 'conversions': 'sum'}).reset_index()
         total_visits_df = weekly_country_data.groupby(['week']).agg({'visits': 'sum'}).reset_index()
@@ -364,41 +330,11 @@ class dataProcessing:
         merged_df = pd.merge(weekly_country_data, total_visits_df, on='week')
         merged_df['conversion_rate'] = merged_df['conversions'] / merged_df['global_visits']
 
-
-        self.plot_with_dynamic_axes(merged_df, 'week', 'conversion_rate', 'country')
-        self.plot_with_dynamic_axes(merged_df, 'week', 'visits', 'country', add_locator=True)
         # Plot the global conversion rate per country over time
-        
-        # plt.figure(figsize=(12, 6))
-        # plt.rcParams["font.weight"] = "bold"
-        # plt.rcParams["axes.labelweight"] = "bold"
-        # plt.xticks(merged_df['week'])
-        # #ax = plt.gca().ticklabel_format(axis='y', style='plain')
-        # for label, row in merged_df.groupby('country'):
-        #     plt.plot(row['week'], row['conversion_rate'], label=label)
-       
-        # plt.title('Weekly conversion rate Over Country')
-        # plt.xlabel('Week')
-        # plt.ylabel('Conversion Rate')
-        # plt.legend(title='Country')
-        # plt.grid(True)
-        # plt.show()
+        self.plot_with_dynamic_axes(merged_df, 'week', 'conversion_rate', 'country')
 
-        # # Plot the global visits per country over time
-        # plt.figure(figsize=(12, 6))
-        # plt.rcParams["font.weight"] = "bold"
-        # plt.rcParams["axes.labelweight"] = "bold"
-        # plt.xticks(merged_df['week'])
-        # plt.gca().ticklabel_format(axis='y', style='plain')
-        
-        # for label, row in merged_df.groupby('country'): 
-        #     plt.plot(row['week'], row['visits'], label=label)
-       
-        # plt.title('Weekly visits Over Country')
-        # plt.xlabel('Week')
-        # plt.ylabel('Total visits in a country')
-        # plt.legend(title='Country')
-        # plt.grid(True)
+        # Plot the visits per country over time
+        self.plot_with_dynamic_axes(merged_df, 'week', 'visits', 'country', add_locator=True)
         
     def comma_format(self,x, pos):
         if x == 0:
@@ -413,23 +349,40 @@ class dataProcessing:
         plt.figure(figsize=(12, 6))
         plt.rcParams["font.weight"] = "bold"
         plt.rcParams["axes.labelweight"] = "bold"
-        plt.xticks(df[x_col])
+        #plt.xticks(df[x_col])
         plt.gca().ticklabel_format(axis='y', style='plain')
         max_value = 0  # Initialize max_value for dynamic y-axis limit
-        
+       
+        # Determine the data type of x_col
+        if pd.api.types.is_numeric_dtype(df[x_col]):
+            is_numeric_x = True
+        else:
+            is_numeric_x = False
+
         if group_by_col:
             # Group the data by the specified column
             for label, row in df.groupby(group_by_col):
-                plt.plot(row[x_col], row[y_col], marker='.', linestyle='-', label=label)
+                if is_numeric_x:
+                    plt.plot(row[x_col], row[y_col], marker='o', linestyle='-', label=label)
+                else:
+                    plt.bar(row[x_col].astype(str), row[y_col], label=label)
                 max_value = max(max_value, row[y_col].max())  # Update max_value if higher value is found
-
             plt.legend(title=group_by_col.title())
         else:
             # Plot data without grouping
-            plt.plot(df[x_col], df[y_col], marker='.', linestyle='-')
+            if is_numeric_x:
+                plt.plot(df[x_col], df[y_col], marker='o', linestyle='-')
+            else:
+                plt.bar(df[x_col].astype(str), df[y_col])
             max_value = df[y_col].max()
-        #plt.plot(df[x_col], df[y_col], marker='o', linestyle='-')
-        plt.title(f'{y_col.replace("_", " ").title()} Over {x_col.replace("_", " ").title()}')
+
+        # Handle x-axis label formatting
+        if not is_numeric_x or isinstance(df[x_col].iloc[0], list):
+            plt.xticks(df[x_col].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x)), rotation=45, ha='right')
+        else:
+            plt.xticks(df[x_col])
+
+        plt.title(f'{y_col.replace("_", " ").title()} Over {x_col.replace("_", " ").title()}' + (f' by {group_by_col.title()}' if group_by_col else ''))
         plt.xlabel(x_col.replace("_", " ").title())
         plt.ylabel(y_col.replace("_", " ").title())
 
@@ -440,5 +393,9 @@ class dataProcessing:
             ax.yaxis.set_minor_locator(MultipleLocator(250000))
             # Set major ticks with 500,000 increments for the whole range
             ax.yaxis.set_major_locator(MultipleLocator(250000))
-        plt.grid(True)
+        if is_numeric_x:
+            plt.grid(True)  # Only show gridlines for line charts (numeric x-axis)
+        else:
+            plt.grid(False)
+        plt.tight_layout()
         plt.show()
