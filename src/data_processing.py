@@ -260,7 +260,6 @@ class dataProcessing:
         # Create a DataFrame for results
         results_df = pd.DataFrame(results)
 
-        results_df.to_csv('enriched_data.csv')
         return results_df
     
     def analyze_decomposition_by_dimension(self, results_df: pd.DataFrame, dimension:list):
