@@ -5,10 +5,7 @@ from pathlib import Path
 from . import schema
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, MultipleLocator
-import matplotlib as mpl
-import seaborn as sns
-import math
-from matplotlib.animation import FuncAnimation
+
 
 class dataProcessing:
 
@@ -49,34 +46,6 @@ class dataProcessing:
         weekly_aggregates_df['weekly_conversion_rate'] = weekly_aggregates_df['weekly_conversions']/weekly_aggregates_df['weekly_visits']
         self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_conversion_rate')
         self.plot_with_dynamic_axes(weekly_aggregates_df, 'week', 'weekly_visits')
-        
-        # Plot the conversion rate over time
-        # plt.figure(figsize=(12, 6))
-        # plt.rcParams["font.weight"] = "bold"
-        # plt.rcParams["axes.labelweight"] = "bold"
-        # plt.gca().ticklabel_format(axis='y', style='plain')
-        # plt.xticks(weekly_aggregates_df['week'])
-        # plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_conversion_rate'], marker='o', linestyle='-')
-        # plt.title('Weekly Conversion Rate Over Time')
-        # plt.xlabel('Week')
-        # plt.ylabel('Conversion Rate')
-        # plt.grid(True)
-        # plt.show()
-
-        # # Plot the global visitors over time
-        # plt.figure(figsize=(12, 6))
-        # plt.rcParams["font.weight"] = "bold"
-        # plt.rcParams["axes.labelweight"] = "bold"
-        # plt.gca().ticklabel_format(axis='y', style='plain')
-        # ax = weekly_aggregates_df['weekly_visits'].plot()
-        # ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
-        # plt.xticks(weekly_aggregates_df['week'])
-        # plt.plot(weekly_aggregates_df.index, weekly_aggregates_df['weekly_visits'], marker='o', linestyle='-')
-        # plt.title('Weekly visits Over Time')
-        # plt.xlabel('Week')
-        # plt.ylabel('Global Visits')
-        # plt.grid(True)
-        # plt.show()
 
         return weekly_aggregates_df
 
@@ -288,13 +257,16 @@ class dataProcessing:
         results_df.to_csv('enriched_data.csv')
         return results_df
     
-    def analyze_decomposition_by_dimension(self, results_df: pd.DataFrame, dimension):
+    def analyze_decomposition_by_dimension(self, results_df: pd.DataFrame, dimension:list):
         """
         This function helps us to identify and visualise the 
         rate change and proportion change effects per country/browser.
 
         Args:
-            results_df : Decomposed dataframe
+            results_df : decomposed Dataframe
+            dimension : parameter on which we want to analyze the decomposition
+        Returns:
+            A visual representation of top rate and porportion contributors based on the dimension
         """
         # Summarize total effects
         total_rate_change = results_df['rate_change_effect'].sum()
@@ -322,12 +294,20 @@ class dataProcessing:
         self.plot_with_dynamic_axes(top_rate_contributors, col_name , 'rate_change_effect')
         self.plot_with_dynamic_axes(top_proportion_contributors, col_name, 'proportion_change_effect')
         
-    def analyze_metrics_per_country(self, weekly_country_data):
+    def analyze_metrics_per_country(self, data:pd.DataFrame):
+        """
+        This functions helps us to analyze the metrics per country.
+        Args:
+            data : csv dataset
+        Returns:
+            a visual representation of the country's contribution in the conversion rate and visits
+        """
+
         groupByColumns = ['week', 'country']
-        weekly_country_data = weekly_country_data.groupby(groupByColumns).agg({'visits': 'sum', 'conversions': 'sum'}).reset_index()
-        total_visits_df = weekly_country_data.groupby(['week']).agg({'visits': 'sum'}).reset_index()
+        data = data.groupby(groupByColumns).agg({'visits': 'sum', 'conversions': 'sum'}).reset_index()
+        total_visits_df = data.groupby(['week']).agg({'visits': 'sum'}).reset_index()
         total_visits_df = total_visits_df.rename(columns= {'visits': 'global_visits'})
-        merged_df = pd.merge(weekly_country_data, total_visits_df, on='week')
+        merged_df = pd.merge(data, total_visits_df, on='week')
         merged_df['conversion_rate'] = merged_df['conversions'] / merged_df['global_visits']
 
         # Plot the global conversion rate per country over time
@@ -335,23 +315,26 @@ class dataProcessing:
 
         # Plot the visits per country over time
         self.plot_with_dynamic_axes(merged_df, 'week', 'visits', 'country', add_locator=True)
-        
-    def comma_format(self,x, pos):
-        if x == 0:
-            return "0"
-        elif x % 1 == 0:
-            return f'{int(x):,}'  # Format as int with commas
-        else:
-            return f'{x:,.2f}'  # Format as float with commas, two decimal places
 
-    # Dynamic plotting function
-    def plot_with_dynamic_axes(self, df, x_col, y_col, group_by_col=None, add_locator=False):
+        return merged_df
+    def plot_with_dynamic_axes(self, df: pd.DataFrame, x_col, y_col, group_by_col=None, add_locator=False):
+        """
+        This functions plot dynamically based on the x-axis, y-axis and group_by_col
+        Args:
+            x_col : x-axis column
+            y_col : y-axis column
+            group_by_col : the column to group upon
+            add_locator : update the y-axis tickets based on a value
+        Returns:
+            A visual representation
+        """
         plt.figure(figsize=(12, 6))
         plt.rcParams["font.weight"] = "bold"
         plt.rcParams["axes.labelweight"] = "bold"
-        #plt.xticks(df[x_col])
         plt.gca().ticklabel_format(axis='y', style='plain')
-        max_value = 0  # Initialize max_value for dynamic y-axis limit
+
+        # Initialize max_value for dynamic y-axis limit
+        max_value = 0  
        
         # Determine the data type of x_col
         if pd.api.types.is_numeric_dtype(df[x_col]):
@@ -363,10 +346,14 @@ class dataProcessing:
             # Group the data by the specified column
             for label, row in df.groupby(group_by_col):
                 if is_numeric_x:
+                    # Plot the line chart for numeric type x-axis column
                     plt.plot(row[x_col], row[y_col], marker='o', linestyle='-', label=label)
                 else:
+                    # Plot the bar chart for numeric type x-axis column
                     plt.bar(row[x_col].astype(str), row[y_col], label=label)
-                max_value = max(max_value, row[y_col].max())  # Update max_value if higher value is found
+
+                # Update the max value as per the max value of y-axis column
+                max_value = max(max_value, row[y_col].max())  
             plt.legend(title=group_by_col.title())
         else:
             # Plot data without grouping
@@ -387,15 +374,34 @@ class dataProcessing:
         plt.ylabel(y_col.replace("_", " ").title())
 
         # Apply comma formatting to the y-axis
+        def comma_format(x:int, pos):
+            """
+            This functions adds commas to the y-axis numbers
+            Args:
+                x : a number
+            Returns:
+                a formatted number with commas
+            """
+            if x == 0:
+                return "0"
+            elif x % 1 == 0:
+                # Format as int with commas
+                return f'{int(x):,}' 
+            else:
+                # Format as float with commas, two decimal places
+                return f'{x:,.2f}'  
+            
         ax = plt.gca()
-        ax.yaxis.set_major_formatter(FuncFormatter(self.comma_format))  
+        ax.yaxis.set_major_formatter(FuncFormatter(comma_format))  
         if add_locator:
             ax.yaxis.set_minor_locator(MultipleLocator(250000))
             # Set major ticks with 500,000 increments for the whole range
             ax.yaxis.set_major_locator(MultipleLocator(250000))
         if is_numeric_x:
-            plt.grid(True)  # Only show gridlines for line charts (numeric x-axis)
+            # Only show gridlines for line charts (numeric x-axis)
+            plt.grid(True)  
         else:
             plt.grid(False)
+
         plt.tight_layout()
         plt.show()
