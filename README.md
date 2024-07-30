@@ -34,11 +34,4 @@ Instructions to execute the python program for executing the PART B of the proje
 
 
 ## 6. Execute tests
-### Use a testing framework like unittest or pytest to discover and run the tests.
-    import unittest
-
-    loader = unittest.TestLoader()
-    suite = loader.discover(start_dir=extract_to)
-
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    python suite.py
