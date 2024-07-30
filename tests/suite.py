@@ -1,7 +1,4 @@
-import unittest
-import test_core.parser_test
+import subprocess
 
-suite = unittest.TestLoader()
-suite = suite.loadTestsFromModule(test_core.parser_test)
-
-unittest.TextTestRunner().run(suite)
+# Run pytest on the extracted test files
+subprocess.run(['pytest'])

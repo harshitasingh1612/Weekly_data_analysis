@@ -34,4 +34,4 @@ Instructions to execute the python program for executing the PART B of the proje
 
 
 ## 6. Execute tests
-    python suite.py
+    pytest
